@@ -7,23 +7,20 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import testudio.ThEnderButt.config.PluginSettings;
 import testudio.ThEnderButt.util.ConsoleMessages;
 
 public final class PlaceholderApiHook {
     private final JavaPlugin plugin;
-    private final PluginSettings settings;
     private Method setPlaceholders;
     private boolean warned;
 
-    public PlaceholderApiHook(JavaPlugin plugin, PluginSettings settings) {
+    public PlaceholderApiHook(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.settings = settings;
     }
 
     public boolean initialize() {
         setPlaceholders = null;
-        if (!settings.isPlaceholderApiEnabled() || !Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+        if (!Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             return true;
         }
         Plugin placeholderPlugin = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");

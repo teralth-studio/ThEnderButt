@@ -42,10 +42,12 @@ public final class Main extends JavaPlugin {
             return;
         }
 
-        placeholderApi = new PlaceholderApiHook(this, settings);
+        placeholderApi = new PlaceholderApiHook(this);
         ajParkour = new AjParkourHook(this, settings);
-        initializeOptionalPlugin("PlaceholderAPI", settings.isPlaceholderApiEnabled(), placeholderApi::initialize);
-        initializeOptionalPlugin("ajParkour", settings.isParkourEnabled(), ajParkour::initialize);
+        initializeOptionalPlugin("PlaceholderAPI", placeholderApi::initialize);
+        if (settings.isParkourEnabled()) {
+            initializeOptionalPlugin("ajParkour", ajParkour::initialize);
+        }
 
         items = new EnderButtItemService(settings, placeholderApi);
         playerListener = new PlayerListener(this, settings, messages, placeholderApi, ajParkour, items);
@@ -93,8 +95,8 @@ public final class Main extends JavaPlugin {
         return messagesLoaded;
     }
 
-    private void initializeOptionalPlugin(String pluginName, boolean configured, IntegrationInitializer initializer) {
-        if (!configured || !Bukkit.getPluginManager().isPluginEnabled(pluginName)) {
+    private void initializeOptionalPlugin(String pluginName, IntegrationInitializer initializer) {
+        if (!Bukkit.getPluginManager().isPluginEnabled(pluginName)) {
             return;
         }
         ConsoleMessages.info(this, "&rDetected " + pluginName + ", initializing...");

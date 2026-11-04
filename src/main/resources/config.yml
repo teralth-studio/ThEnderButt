@@ -1,36 +1,77 @@
+# ====================================
+# ThEnderButt - Configuration File
+# ====================================
+
 item:
+  # Slot where the item will be placed in the inventory
   slot: 8
+  # Quantity of the item to be given to the player
   quantity: 1
+  # Material of the item to be given to the player
   material: ENDER_PEARL
+  # Display name and lore of the item to be given to the player
   name: "&b&lEnder Pearl Launcher"
+  # Lore of the item to be given to the player
   lore:
     - "&7Lanza una ender pearl y viaja con ella."
     - ""
     - "&e&lRight click &7to throw the ender pearl."
+  # Hide flags of the item to be given to the player
+  # This flags can be: enchantments and attributes
   hide-flags: true
+  # Whether the item should have a glowing effect or not
   glow: true
+  # Whether the item should be unbreakable or not
   unbreakable: true
+  # Permission to use the Enderbutt.
+  # Leave "" to allow all players to use it.
   permission: ""
+  # Cooldown in seconds before the player can use the Enderbutt again.
   cooldown: 3
 
 protection:
+  # Whether the Enderbutt should be protected from being modified
+  # (like the name)
   prevent-modify: true
+  # Prevents the item to be dropped
   prevent-drop: true
+  # Prevents the item to be moved in the inventory
   prevent-move: true
+  # Prevents the item to be destroyed
   prevent-destroy: true
+  # Prevents the item to be picked-up from the floor
   prevent-pickup: true
+  # Should the user keeps the Enderbutt when dead?
   keep-on-death: true
+  # Should the user consume the Enderbutt once used?
   consume-on-use: false
+  # Allows the player to leave the Endebutt. If disabled, the
+  # player won't be able to leave the Endebutt (even with commands)
   allow-dismount: true
+  # Destroys the Endebutt when the player is not mounted anymore
+  # (must have "allow-dismount" set to true to work)
   destroy-on-dismount: true
 
 give:
+  # Give the Enderbutt to the player when joining the server
   on-join: true
+  # Give the Enderbutt to the player on respawning
   on-respawn: true
+  # Give the Enderbutt to the player upon inventory clear
   upon-clear: true
 
+# Worlds that the Enderbutt can be used
+# (if not listed here, the Enderbutt won't work, even if the
+# player has the item)
+# ----------
+# enabled-worlds: (MUST BE A LIST)
+#   - world
+#   - world_the_end
 enabled-worlds: []
 
+# Extra plugins for the plugin functionallity
 addons:
-  placeholderapi: true
+  # (WHEN DETECTED) If enabled, the player won't be given
+  # the Enderbutt when joining an ajParkour game; when the user
+  # leaves, the Enderbutt will be given back.
   aj-parkour: true

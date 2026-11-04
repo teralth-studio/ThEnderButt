@@ -112,10 +112,6 @@ public final class PluginSettings {
         return plugin.getConfig().getBoolean("item.unbreakable", true);
     }
 
-    public boolean isPlaceholderApiEnabled() {
-        return plugin.getConfig().getBoolean("addons.placeholderapi", true);
-    }
-
     private int boundedInt(String path, int fallback, int minimum, int maximum) {
         Object value = plugin.getConfig().get(path);
         if (!(value instanceof Number)) {

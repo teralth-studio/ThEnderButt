@@ -1,3 +1,9 @@
+# ======================================
+# ThEnderButt - Messages File
+# ======================================
+
+# You can also use PlaceholderAPI here!
+
 prefix: "&e&lThEnderButt&r &8» &7"
 no-permission: "&cYou don't have permission to use this command."
 reload: "&aPlugin reloaded in %time% ms"
