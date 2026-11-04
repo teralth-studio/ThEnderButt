@@ -112,6 +112,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+          GITHUB_SHA: ${{ github.sha }}
         run: |
           cat > release-notes.md <<EOF
           # ⚠️ Disclaimer!
@@ -122,20 +123,22 @@ jobs:
           2. Place it in your server's \`plugins\` folder.
           3. Restart your server.
           EOF
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file release-notes.md
-            gh release upload "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" --clobber
+          RELEASE_ID="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"${RELEASE_TAG}\") | .id" | sed -n '1p')"
+          if [ -n "$RELEASE_ID" ]; then
+            gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
+              -f "name=${RELEASE_TAG}" \
+              -F "draft=false" \
+              -F "prerelease=false" \
+              -f "body=$(cat release-notes.md)" >/dev/null
           else
-            gh release create "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" \
-              --verify-tag \
-              --title "$RELEASE_TAG" \
-              --notes-file release-notes.md
+            RELEASE_ID="$(gh api -X POST "repos/${GITHUB_REPOSITORY}/releases" \
+              -f "tag_name=${RELEASE_TAG}" \
+              -f "target_commitish=${GITHUB_SHA}" \
+              -f "name=${RELEASE_TAG}" \
+              -F "draft=false" \
+              -F "prerelease=false" \
+              -f "body=$(cat release-notes.md)" \
+              --jq .id)"
           fi
-          RELEASE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}" --jq .id)"
-          DRAFT_STATUS="$(gh api -X PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" \
-            -F draft=false \
-            --jq .draft)"
-          if [ "$DRAFT_STATUS" != "false" ]; then
-            echo "ERROR: GitHub release '$RELEASE_TAG' was not published publicly."
-            exit 1
-          fi
+          gh release upload "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" --clobber
