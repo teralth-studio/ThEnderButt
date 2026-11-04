@@ -2,6 +2,8 @@ name: Build and release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
 
@@ -9,8 +11,65 @@ permissions:
   contents: read
 
 jobs:
+  resolve-release:
+    name: Resolve release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run_release: ${{ steps.resolve.outputs.run_release }}
+      release_tag: ${{ steps.resolve.outputs.release_tag }}
+      retag: ${{ steps.resolve.outputs.retag }}
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve release tag
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+            if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "ERROR: Tag '$RELEASE_TAG' is not a semantic version tag."
+              exit 1
+            fi
+            echo "run_release=true" >> "$GITHUB_OUTPUT"
+            echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "retag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --force --tags origin
+          CURRENT_TAG="$(git tag --points-at "$GITHUB_SHA" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          if [ -n "$CURRENT_TAG" ]; then
+            echo "A release tag already points to this commit; the tag event will publish it."
+            echo "run_release=false" >> "$GITHUB_OUTPUT"
+            echo "release_tag=$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+            echo "retag=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          RELEASE_TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          if ! printf '%s\n' "$RELEASE_TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "ERROR: Latest published release tag '$RELEASE_TAG' is not a semantic version tag."
+            exit 1
+          fi
+          echo "No new tag was pushed; the latest published release tag '$RELEASE_TAG' will be recreated at this commit."
+          echo "run_release=true" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "retag=true" >> "$GITHUB_OUTPUT"
+
   validate:
     name: Validate on Java ${{ matrix.java }}
+    needs: resolve-release
+    if: needs.resolve-release.outputs.run_release == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -32,7 +91,8 @@ jobs:
 
   package:
     name: Package Java 8 plugin
-    needs: validate
+    needs: [resolve-release, validate]
+    if: needs.resolve-release.outputs.run_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -46,17 +106,20 @@ jobs:
           java-version: "8"
           cache: maven
       - name: Build release jar
-        run: mvn --batch-mode "-Drevision=${GITHUB_REF_NAME}" clean package
+        env:
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+        run: mvn --batch-mode "-Drevision=${RELEASE_TAG}" clean package
       - name: Upload release jar
         uses: actions/upload-artifact@v4
         with:
           name: thenderbutt-release-jar
-          path: target/ThEnderButt-${{ github.ref_name }}.jar
+          path: target/ThEnderButt-${{ needs.resolve-release.outputs.release_tag }}.jar
           if-no-files-found: error
 
   release:
     name: Publish GitHub release
-    needs: package
+    needs: [resolve-release, package]
+    if: needs.resolve-release.outputs.run_release == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -66,17 +129,44 @@ jobs:
         with:
           name: thenderbutt-release-jar
           path: release
-      - name: Create GitHub release
+      - name: Recreate latest tag when needed
+        if: needs.resolve-release.outputs.retag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
+        run: |
+          TAG_OBJECT_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/tags" \
+            -f "tag=${RELEASE_TAG}" \
+            -f "message=Release ${RELEASE_TAG}" \
+            -f "object=${GITHUB_SHA}" \
+            -f "type=commit" \
+            --jq .sha)"
+          gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${RELEASE_TAG}"
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f "ref=refs/tags/${RELEASE_TAG}" \
+            -f "sha=${TAG_OBJECT_SHA}"
+      - name: Create or update GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.resolve-release.outputs.release_tag }}
         run: |
-          gh release create "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" \
-            --title "$RELEASE_TAG" \
-            --notes "# ⚠️ Disclaimer!
+          cat > release-notes.md <<EOF
+          # ⚠️ Disclaimer!
           This is a github release; we highly recommend you to download the plugin from SpigotMC.
 
           # How to install (from Github)
           1. Download the jar: \`ThEnderButt-${RELEASE_TAG}.jar\`
           2. Place it in your server's \`plugins\` folder.
-          3. Restart your server."
+          3. Restart your server.
+          EOF
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file release-notes.md
+            gh release upload "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" --clobber
+          else
+            gh release create "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" \
+              --verify-tag \
+              --title "$RELEASE_TAG" \
+              --notes-file release-notes.md
+          fi
