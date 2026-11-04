@@ -1,0 +1,22 @@
+name: ThEnderButt
+version: ${project.version}
+main: testudio.ThEnderButt.Main
+author: 'TeStudio'
+description: 'Launch an ender pearl and travel across the world.'
+softdepend:
+  - PlaceholderAPI
+  - ajParkour
+commands:
+  enderbutt:
+    description: Main ThEnderButt command
+    usage: /enderbutt [help|reload|give <player>]
+    aliases:
+      - eb
+      - enderb
+permissions:
+  thenderbutt.reload:
+    description: Reload ThEnderButt configuration
+    default: op
+  thenderbutt.give:
+    description: Give the Enderbutt item to a player
+    default: op

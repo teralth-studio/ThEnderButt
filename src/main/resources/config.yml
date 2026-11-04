@@ -1,0 +1,36 @@
+item:
+  slot: 8
+  quantity: 1
+  material: ENDER_PEARL
+  name: "&b&lEnder Pearl Launcher"
+  lore:
+    - "&7Lanza una ender pearl y viaja con ella."
+    - ""
+    - "&e&lRight click &7to throw the ender pearl."
+  hide-flags: true
+  glow: true
+  unbreakable: true
+  permission: ""
+  cooldown: 3
+
+protection:
+  prevent-modify: true
+  prevent-drop: true
+  prevent-move: true
+  prevent-destroy: true
+  prevent-pickup: true
+  keep-on-death: true
+  consume-on-use: false
+  allow-dismount: true
+  destroy-on-dismount: true
+
+give:
+  on-join: true
+  on-respawn: true
+  upon-clear: true
+
+enabled-worlds: []
+
+addons:
+  placeholderapi: true
+  aj-parkour: true

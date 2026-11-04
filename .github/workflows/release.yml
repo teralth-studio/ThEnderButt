@@ -1,0 +1,82 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate on Java ${{ matrix.java }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ["8", "11", "16", "17", "21", "25"]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      - name: Verify project
+        run: mvn --batch-mode clean verify
+
+  package:
+    name: Package Java 8 plugin
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "8"
+          cache: maven
+      - name: Build release jar
+        run: mvn --batch-mode "-Drevision=${GITHUB_REF_NAME}" clean package
+      - name: Upload release jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: thenderbutt-release-jar
+          path: target/ThEnderButt-${{ github.ref_name }}.jar
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release jar
+        uses: actions/download-artifact@v4
+        with:
+          name: thenderbutt-release-jar
+          path: release
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" "release/ThEnderButt-${RELEASE_TAG}.jar" \
+            --title "$RELEASE_TAG" \
+            --notes "# ⚠️ Disclaimer!
+          This is a github release; we highly recommend you to download the plugin from SpigotMC.
+
+          # How to install (from Github)
+          1. Download the jar: \`ThEnderButt-${RELEASE_TAG}.jar\`
+          2. Place it in your server's \`plugins\` folder.
+          3. Restart your server."
